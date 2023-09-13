@@ -6,7 +6,9 @@ import "strconv"
 func Run(nums []int) []string {
 	strings := []string{}
 	for _, v := range nums {
-		if v % 3 == 0 {
+		if v % 15 == 0 {
+			strings = append(strings, "FizzBuzz")
+		} else if v % 3 == 0 {
 			strings = append(strings, "Fizz")
 		} else if v % 5 == 0 {
 			strings = append(strings, "Buzz")

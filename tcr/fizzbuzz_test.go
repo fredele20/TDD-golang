@@ -38,3 +38,9 @@ func (s *FizzBuzzSuite) TestFiveChangedBuzz() {
 
 	s.Equal([]string{"Buzz"}, r)
 }
+
+func (s *FizzBuzzSuite) TestFifteenChangedFizzBuzz() {
+	r := fizzbuzz.Run([]int{15})
+
+	s.Equal([]string{"FizzBuzz"}, r)
+}
