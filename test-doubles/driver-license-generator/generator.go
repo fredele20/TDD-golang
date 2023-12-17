@@ -5,6 +5,7 @@ import (
 	"fmt"
 )
 
+//go:generate mockgen -source=generator.go --destination=../mocks/generator.go -package=mocks
 type Applicant interface {
 	IsOver17() bool
 	HoldsLicense() bool

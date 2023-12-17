@@ -2,9 +2,10 @@ package driverlicensegenerator_test
 
 import (
 	driverlicensegenerator "go-tdd/test-doubles/driver-license-generator"
-	"strings"
+	"go-tdd/test-doubles/mocks"
 	"testing"
 
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -12,42 +13,53 @@ type DrivingLicenseSuite struct {
 	suite.Suite
 }
 
-func (s *DrivingLicenseSuite) TestUnderageApplicant() {
-	a := UnderageApplicant{}
-	l := &SpyLogger{}
-	r := FakeRand{}
+var ctrl *gomock.Controller
+var a *mocks.MockApplicant
+var l *mocks.MockLogger
+var r *mocks.MockRandomNumberGenerator
+var lg driverlicensegenerator.NumberGenerator
 
-	lg := driverlicensegenerator.NewNumberGenerator(l, r)
+func (s *DrivingLicenseSuite) SetupTest() {
+	ctrl = gomock.NewController(s.T())
+
+	a = mocks.NewMockApplicant(ctrl)
+	l = mocks.NewMockLogger(ctrl)
+	r = mocks.NewMockRandomNumberGenerator(ctrl)
+	lg = *driverlicensegenerator.NewNumberGenerator(l, r)
+}
+
+func (s *DrivingLicenseSuite) TestUnderageApplicant() {
+	a.EXPECT().IsOver17().Return(false)
+	a.EXPECT().HoldsLicense().Return(false)
+
+	l.EXPECT().LogStuff("Underaged Applicant, must be over 17 to get a license").Times(1)
+
 	_, err := lg.Generate(a)
 
 	s.Error(err)
 	s.Contains(err.Error(), "Underaged")
 
-	s.Equal(1, l.callCount)
-	s.Contains(l.lastMessage, "Underaged")
 }
 
 func (s *DrivingLicenseSuite) TestNoSecondLicense() {
-	a := LicenseHolderApplicant{}
-	l := &SpyLogger{}
-	r := FakeRand{}
+	a.EXPECT().HoldsLicense().Return(true)
+	l.EXPECT().LogStuff("Duplicate license attempted, cannot create another license").Times(1)
 
-	lg := driverlicensegenerator.NewNumberGenerator(l, r)
 	_, err := lg.Generate(a)
 
 	s.Error(err)
-	s.Contains(err.Error(), "Duplicate")
-
-	s.Equal(1, l.callCount)
-	s.Contains(l.lastMessage, "Duplicate")
+	s.Contains(err.Error(), "Duplicate license attempted, cannot create another")
 }
 
 func (s *DrivingLicenseSuite) TestLicenseGenerator() {
-	a := ValidApplicant{"MDB", "04102023"}
-	l := &SpyLogger{}
-	r := FakeRand{}
+	// a := ValidApplicant{"MDB", "04102023"}
+	a.EXPECT().HoldsLicense().Return(false)
+	a.EXPECT().IsOver17().Return(true)
+	a.EXPECT().GetInitials().Return("MDB")
+	a.EXPECT().GetDOB().Return("04102023")
 
-	lg := driverlicensegenerator.NewNumberGenerator(l, r)
+	r.EXPECT().GetRandomNumbers(5).Return("00000")
+
 	ln, err := lg.Generate(a)
 
 	s.NoError(err)
@@ -55,11 +67,14 @@ func (s *DrivingLicenseSuite) TestLicenseGenerator() {
 }
 
 func (s *DrivingLicenseSuite) TestLicenseGeneratorShorterInitials() {
-	a := ValidApplicant{"MB", "04102023"}
-	l := &SpyLogger{}
-	r := FakeRand{}
+	// a := ValidApplicant{"MB", "04102023"}
+	a.EXPECT().HoldsLicense().Return(false)
+	a.EXPECT().IsOver17().Return(true)
+	a.EXPECT().GetInitials().Return("MB")
+	a.EXPECT().GetDOB().Return("04102023")
 
-	lg := driverlicensegenerator.NewNumberGenerator(l, r)
+	r.EXPECT().GetRandomNumbers(6).Return("000000")
+
 	ln, err := lg.Generate(a)
 
 	s.NoError(err)
@@ -68,80 +83,4 @@ func (s *DrivingLicenseSuite) TestLicenseGeneratorShorterInitials() {
 
 func TestDrivingLicenseSuite(t *testing.T) {
 	suite.Run(t, new(DrivingLicenseSuite))
-}
-
-type ValidApplicant struct {
-	initials string
-	dob      string
-}
-
-func (v ValidApplicant) IsOver17() bool {
-	return true
-}
-
-func (v ValidApplicant) HoldsLicense() bool {
-	return false
-}
-
-func (v ValidApplicant) GetInitials() string {
-	return v.initials
-}
-
-func (v ValidApplicant) GetDOB() string {
-	return v.dob
-}
-
-type UnderageApplicant struct{}
-
-// GetDOB implements driverlicensegenerator.Applicant.
-func (u UnderageApplicant) GetDOB() string {
-	return ""
-}
-
-// getInitials implements driverlicensegenerator.Applicant.
-func (u UnderageApplicant) GetInitials() string {
-	return ""
-}
-
-func (u UnderageApplicant) IsOver17() bool {
-	return false
-}
-
-func (u UnderageApplicant) HoldsLicense() bool {
-	return false
-}
-
-type LicenseHolderApplicant struct{}
-
-// GetDOB implements driverlicensegenerator.Applicant.
-func (l LicenseHolderApplicant) GetDOB() string {
-	return ""
-}
-
-func (l LicenseHolderApplicant) IsOver17() bool {
-	return true
-}
-
-func (l LicenseHolderApplicant) HoldsLicense() bool {
-	return true
-}
-
-func (l LicenseHolderApplicant) GetInitials() string {
-	return ""
-}
-
-type FakeRand struct {}
-
-func (f FakeRand) GetRandomNumbers(len int) string {
-	return strings.Repeat("0", len)
-}
-
-type SpyLogger struct {
-	callCount   int
-	lastMessage string
-}
-
-func (s *SpyLogger) LogStuff(v string) {
-	s.callCount++
-	s.lastMessage = v
 }
